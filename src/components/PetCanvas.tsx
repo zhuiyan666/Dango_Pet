@@ -85,7 +85,7 @@ function behaviorToAnimState(behavior: BehaviorType): PetState {
     case "interact":
       return "interact";
     case "dragged":
-      return "interact"; // 使用 interact 作为拖拽的占位动画
+      return "interact";
     case "fall":
       return "idle";
     default:
@@ -94,13 +94,9 @@ function behaviorToAnimState(behavior: BehaviorType): PetState {
 }
 
 interface PetCanvasProps {
-  /** 画布宽度 */
   width?: number;
-  /** 画布高度 */
   height?: number;
-  /** 精灵图缩放比例 */
   scale?: number;
-  /** 额外的动画片段 */
   extraClips?: AnimationClip[];
 }
 
@@ -112,10 +108,9 @@ export function PetCanvas({
 }: PetCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animManagerRef = useRef<AnimationManager | null>(null);
+  const rendererRef = useRef<SpriteRenderer | null>(null);
   const rafIdRef = useRef<number>(0);
-  const [, setCurrentState] = useState<PetState>("idle");
 
-  // 表情气泡状态
   const [bubbleVisible, setBubbleVisible] = useState(false);
   const [bubbleEmotion, setBubbleEmotion] = useState("");
   const [bubbleX, setBubbleX] = useState(0);
@@ -134,15 +129,16 @@ export function PetCanvas({
   } = usePetBehavior({
     windowWidth: width,
     windowHeight: height,
-    petWidth: 128 * scale / 2,
-    petHeight: 128 * scale / 2,
+    petWidth: 64,
+    petHeight: 64,
   });
 
-  // 当前渲染器位置
-  const rendererPosRef = useRef({ x: 0, y: 0 });
+  // 是否正在拖拽（区分拖拽和点击）
+  const isDraggingRef = useRef(false);
+  const mouseDownPosRef = useRef({ x: 0, y: 0 });
 
   /**
-   * 动画循环 — 由 requestAnimationFrame 驱动
+   * 动画循环
    */
   const animationLoop = useCallback((timestamp: number) => {
     animManagerRef.current?.update(timestamp);
@@ -155,53 +151,43 @@ export function PetCanvas({
   const showEmotionBubble = useCallback((category: Parameters<typeof randomEmotion>[0]) => {
     const emotion = randomEmotion(category);
     setBubbleEmotion(emotion);
-    setBubbleX(rendererPosRef.current.x + 64);
-    setBubbleY(rendererPosRef.current.y);
+    setBubbleX(position.x + 64);
+    setBubbleY(position.y);
     setBubbleVisible(true);
-  }, []);
+  }, [position.x, position.y]);
 
-  // 初始化渲染器和动画管理器
+  // 初始化渲染器（只创建一次）
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // 创建渲染器
     const renderer = new SpriteRenderer({
       canvas,
-      x: position.x,
-      y: position.y,
+      x: width / 2 - 32,
+      y: height / 2 - 32,
       scale,
     });
+    rendererRef.current = renderer;
 
-    // 创建动画管理器
     const manager = new AnimationManager(renderer);
+    animManagerRef.current = manager;
 
-    // 注册所有动画片段
+    // 注册动画片段
     manager.registerClip(IDLE_CLIP);
     manager.registerClip(WALK_CLIP);
     manager.registerClip(SLEEP_CLIP);
     manager.registerClip(INTERACT_CLIP);
     manager.registerClip(DRAGGED_CLIP);
-
-    // 注册额外的动画片段
     for (const clip of extraClips) {
       manager.registerClip(clip);
     }
 
-    // 生成占位精灵图
-    const idleSource = createIdlePlaceholder(IDLE_CLIP.frameCount, IDLE_CLIP.frameWidth);
-    const walkSource = createWalkPlaceholder(WALK_CLIP.frameCount, WALK_CLIP.frameWidth);
-    const sleepSource = createSleepPlaceholder(SLEEP_CLIP.frameCount, SLEEP_CLIP.frameWidth);
-    const interactSource = createInteractPlaceholder(INTERACT_CLIP.frameCount, INTERACT_CLIP.frameWidth);
-    const draggedSource = createDraggedPlaceholder(DRAGGED_CLIP.frameCount, DRAGGED_CLIP.frameWidth);
-
-    manager.registerSource("idle", idleSource);
-    manager.registerSource("walk", walkSource);
-    manager.registerSource("sleep", sleepSource);
-    manager.registerSource("interact", interactSource);
-    manager.registerSource("dragged", draggedSource);
-
-    animManagerRef.current = manager;
+    // 注册占位精灵图
+    manager.registerSource("idle", createIdlePlaceholder(IDLE_CLIP.frameCount, IDLE_CLIP.frameWidth));
+    manager.registerSource("walk", createWalkPlaceholder(WALK_CLIP.frameCount, WALK_CLIP.frameWidth));
+    manager.registerSource("sleep", createSleepPlaceholder(SLEEP_CLIP.frameCount, SLEEP_CLIP.frameWidth));
+    manager.registerSource("interact", createInteractPlaceholder(INTERACT_CLIP.frameCount, INTERACT_CLIP.frameWidth));
+    manager.registerSource("dragged", createDraggedPlaceholder(DRAGGED_CLIP.frameCount, DRAGGED_CLIP.frameWidth));
 
     // 启动 idle 动画
     manager.transitionTo("idle").catch(console.error);
@@ -213,12 +199,12 @@ export function PetCanvas({
       cancelAnimationFrame(rafIdRef.current);
       manager.destroy();
       animManagerRef.current = null;
+      rendererRef.current = null;
     };
-  }, [width, height, scale, extraClips, animationLoop, position.x, position.y]);
+  }, [width, height, scale, extraClips, animationLoop]);
 
-  // 监听行为事件，更新动画状态和显示气泡
+  // 监听行为事件
   useEffect(() => {
-    // 交互事件 — 显示表情气泡
     const handleInteractEvent = (event: BehaviorEvent) => {
       if (event.data && (event.data as { type?: string }).type === "pet") {
         showEmotionBubble("pet");
@@ -228,54 +214,29 @@ export function PetCanvas({
       }
     };
 
-    // 拖拽事件
-    const handleDraggedEvent = () => {
-      showEmotionBubble("surprised");
-    };
-
-    // 掉落事件
-    const handleFallEvent = () => {
-      showEmotionBubble("pet");
-    };
-
-    // 伸懒腰
-    const handleStretchEvent = () => {
-      showEmotionBubble("stretch");
-    };
-
-    // 打哈欠
-    const handleYawnEvent = () => {
-      showEmotionBubble("yawn");
-    };
-
-    // 睡觉
-    const handleSleepEvent = () => {
-      showEmotionBubble("sleepy");
-    };
-
     onBehaviorEvent("interact", handleInteractEvent);
-    onBehaviorEvent("dragged", handleDraggedEvent);
-    onBehaviorEvent("fall", handleFallEvent);
-    onBehaviorEvent("stretch", handleStretchEvent);
-    onBehaviorEvent("yawn", handleYawnEvent);
-    onBehaviorEvent("sleep", handleSleepEvent);
-
-    return () => {
-      // 清理由 BehaviorController 自动处理
-    };
+    onBehaviorEvent("dragged", () => showEmotionBubble("surprised"));
+    onBehaviorEvent("fall", () => showEmotionBubble("pet"));
+    onBehaviorEvent("stretch", () => showEmotionBubble("stretch"));
+    onBehaviorEvent("yawn", () => showEmotionBubble("yawn"));
+    onBehaviorEvent("sleep", () => showEmotionBubble("sleepy"));
   }, [onBehaviorEvent, showEmotionBubble]);
 
-  // 当行为改变时切换动画
+  // 行为改变时切换动画
   useEffect(() => {
     const animState = behaviorToAnimState(behavior);
     const manager = animManagerRef.current;
     if (manager && manager.getState() !== animState) {
       manager.transitionTo(animState).catch(console.error);
-      setCurrentState(animState);
     }
   }, [behavior]);
 
-  // 同步宠物状态到全局存储（供插件系统读取）
+  // 更新渲染器位置（跟随行为系统）
+  useEffect(() => {
+    rendererRef.current?.setPosition(position.x, position.y);
+  }, [position.x, position.y]);
+
+  // 同步宠物状态到全局存储
   useEffect(() => {
     updatePetState({
       state: behaviorToAnimState(behavior),
@@ -284,37 +245,38 @@ export function PetCanvas({
     });
   }, [behavior, position, facing]);
 
-  // 更新渲染器位置（跟随行为系统计算的位置）
-  useEffect(() => {
-    const manager = animManagerRef.current;
-    if (manager) {
-      // AnimationManager 通过 renderer 间接更新位置
-      rendererPosRef.current = { x: position.x, y: position.y };
-      // 使用 renderer.setPosition
-      (manager as unknown as { renderer: { setPosition: (x: number, y: number) => void } }).renderer.setPosition(position.x, position.y);
-    }
-  }, [position]);
+  // 鼠标按下 — 记录位置，判断是否拖拽
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    isDraggingRef.current = false;
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
 
-  // 处理拖拽（Tauri 窗口拖拽与行为系统联动）
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button === 0) {
+    const handleMouseMove = (me: MouseEvent) => {
+      const dx = me.clientX - mouseDownPosRef.current.x;
+      const dy = me.clientY - mouseDownPosRef.current.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        isDraggingRef.current = true;
         handleDragStart();
-        // Tauri 窗口拖拽由上层 useWindowDrag 处理
       }
-    },
-    [handleDragStart],
-  );
+    };
 
-  const handleMouseUp = useCallback(() => {
-    handleDragEnd();
-  }, [handleDragEnd]);
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      if (isDraggingRef.current) {
+        handleDragEnd();
+      }
+      isDraggingRef.current = false;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  }, [handleDragStart, handleDragEnd]);
 
   return (
     <div
       style={{ position: "relative", width, height }}
       onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
     >
       <canvas
         ref={canvasRef}
@@ -329,7 +291,6 @@ export function PetCanvas({
         }}
       />
 
-      {/* 表情气泡 */}
       <EmotionBubble
         visible={bubbleVisible}
         emotion={bubbleEmotion}
@@ -338,7 +299,7 @@ export function PetCanvas({
         onClose={() => setBubbleVisible(false)}
       />
 
-      {/* 开发用状态显示 — 生产环境可移除 */}
+      {/* 开发用状态显示 */}
       <div
         style={{
           position: "absolute",
