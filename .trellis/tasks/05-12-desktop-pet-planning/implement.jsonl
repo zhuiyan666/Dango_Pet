@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-12-desktop-pet-planning/prd.md", "reason": "产品需求文档，包含所有架构决策和 MVP 范围定义，实施的总纲"}
+{"file": ".trellis/tasks/05-12-desktop-pet-planning/research/rendering-approaches.md", "reason": "渲染方案调研，包含 2D/Live2D/3D 对比、透明窗口技术细节、Tauri vs Electron 对比"}
+{"file": ".trellis/tasks/05-12-desktop-pet-planning/research/plugin-architecture.md", "reason": "插件架构调研，包含 V8 Isolate/WASM/子进程对比、插件生命周期设计、权限系统"}
+{"file": ".trellis/tasks/05-12-desktop-pet-planning/research/desktop-pet-market.md", "reason": "市场调研，包含竞品分析、用户需求、产品定位参考"}

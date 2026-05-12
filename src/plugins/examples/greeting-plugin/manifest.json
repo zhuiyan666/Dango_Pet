@@ -1,0 +1,10 @@
+{
+  "id": "com.dango.greeting",
+  "name": "打招呼插件",
+  "version": "1.0.0",
+  "description": "宠物每隔一段时间随机说一句话",
+  "author": "Dango Team",
+  "entry": "index.js",
+  "permissions": ["pet:control", "events:system"],
+  "minAppVersion": "0.1.0"
+}

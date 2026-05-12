@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/05-12-desktop-pet-planning/prd.md", "reason": "验收标准来源，检查实施是否符合 PRD 中定义的 MVP 范围和架构决策"}
+{"file": ".trellis/tasks/05-12-desktop-pet-planning/research/plugin-architecture.md", "reason": "插件架构规范，检查插件系统实现是否符合调研中的最佳实践"}
+{"file": ".trellis/tasks/05-12-desktop-pet-planning/research/rendering-approaches.md", "reason": "渲染方案规范，检查透明窗口和渲染管线实现是否正确"}

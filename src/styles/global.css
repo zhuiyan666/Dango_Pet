@@ -1,0 +1,25 @@
+/* 全局样式 — 团子 Dango 桌面宠物 */
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  /* 防止文本选中干扰拖拽 */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 右键菜单淡入动画 */
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

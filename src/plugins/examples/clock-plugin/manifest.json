@@ -1,0 +1,10 @@
+{
+  "id": "com.dango.clock",
+  "name": "时钟插件",
+  "version": "1.0.0",
+  "description": "在宠物旁边显示当前时间",
+  "author": "Dango Team",
+  "entry": "index.js",
+  "permissions": ["ui:render", "events:system"],
+  "minAppVersion": "0.1.0"
+}
