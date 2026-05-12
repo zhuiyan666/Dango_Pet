@@ -8,16 +8,13 @@ import { useCallback, useEffect, useRef } from "react";
 
 export function useClickThrough() {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const isClickThroughRef = useRef(false);
 
-  /**
-   * 鼠标进入宠物区域时取消穿透
-   * 鼠标离开宠物区域时启用穿透
-   */
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
 
-    let isSetup = false;
+    let cleanup: (() => void) | null = null;
 
     const setupClickThrough = async () => {
       try {
@@ -25,18 +22,33 @@ export function useClickThrough() {
         const appWindow = getCurrentWindow();
 
         // 鼠标进入宠物区域 → 接收鼠标事件
-        el.addEventListener("mouseenter", () => {
-          appWindow.setIgnoreCursorEvents(false);
-        });
+        const onEnter = () => {
+          if (isClickThroughRef.current) {
+            appWindow.setIgnoreCursorEvents(false);
+            isClickThroughRef.current = false;
+          }
+        };
 
         // 鼠标离开宠物区域 → 穿透鼠标事件
-        el.addEventListener("mouseleave", () => {
-          appWindow.setIgnoreCursorEvents(true);
-        });
+        const onLeave = () => {
+          if (!isClickThroughRef.current) {
+            appWindow.setIgnoreCursorEvents(true);
+            isClickThroughRef.current = true;
+          }
+        };
 
-        // 初始状态启用穿透
-        await appWindow.setIgnoreCursorEvents(true);
-        isSetup = true;
+        el.addEventListener("mouseenter", onEnter);
+        el.addEventListener("mouseleave", onLeave);
+
+        // 初始状态：不穿透（让用户能与宠物交互）
+        // 延迟启用穿透，等首次鼠标离开宠物区域后再启用
+        await appWindow.setIgnoreCursorEvents(false);
+
+        cleanup = () => {
+          el.removeEventListener("mouseenter", onEnter);
+          el.removeEventListener("mouseleave", onLeave);
+          appWindow.setIgnoreCursorEvents(false).catch(() => {});
+        };
       } catch {
         // 非 Tauri 环境静默忽略
       }
@@ -45,22 +57,15 @@ export function useClickThrough() {
     setupClickThrough();
 
     return () => {
-      // 清理时重置穿透状态
-      if (isSetup) {
-        import("@tauri-apps/api/window")
-          .then(({ getCurrentWindow }) => getCurrentWindow().setIgnoreCursorEvents(false))
-          .catch(() => {});
-      }
+      cleanup?.();
     };
   }, []);
 
   /**
    * 点击宠物时的交互处理
-   * 后续扩展为摸头反应、弹出菜单等
    */
   const handleClickThrough = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    // TODO: Phase 2 实现具体交互逻辑
     console.log("宠物被点击了！", e.clientX, e.clientY);
   }, []);
 

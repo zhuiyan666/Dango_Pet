@@ -148,12 +148,13 @@ function AppContent() {
         justifyContent: "center",
       }}
       onMouseDown={handleMouseDown}
-      onContextMenu={handleContextMenu}
-      onDoubleClick={handleCanvasDoubleClick}
     >
       <div
         ref={canvasRef as React.RefObject<HTMLDivElement>}
         onClick={handleClickThrough}
+        onContextMenu={handleContextMenu}
+        onDoubleClick={handleCanvasDoubleClick}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <PetCanvas
           width={CANVAS_SIZE}
